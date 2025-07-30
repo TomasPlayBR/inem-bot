@@ -52,8 +52,8 @@ async function sendPanel(channel) {
       'Após abrir o ticket, aguarde que um membro da nossa equipe te atenda o mais rápido possível.'
     )
     .setColor('#1e90ff')
-    .setThumbnail('https://i.imgur.com/AfFp7pu.png')
-    .setImage('https://i.imgur.com/wSTFkRM.png')
+    .setThumbnail('https://i.imgur.com/WqZT0Eq.png') // thumbnail direto
+    .setImage('https://i.imgur.com/4Z2gn16.jpg') // imagem principal direta
     .setFooter({ text: 'INEM Sucesso Roleplay - TomasPlayBR', iconURL: client.user.displayAvatarURL() });
 
   const row = new ActionRowBuilder().addComponents(
@@ -75,80 +75,55 @@ client.once('ready', async () => {
 client.on('interactionCreate', async (interaction) => {
   if (interaction.isButton()) {
     if (interaction.customId === 'confirmar_ticket') {
-      // Resposta só para o usuário, evita spams no canal
-      await interaction.reply({
-        content: `⚠️ <@${interaction.user.id}>, tens a certeza que queres abrir um ticket? Reage ✅ para confirmar ou ❌ para cancelar.`,
-        ephemeral: true
+      // Abre o ticket direto sem confirmação
+      const numero = getNextTicketNumber();
+      const channelName = `ticket-${numero}`;
+
+      const canal = await interaction.guild.channels.create({
+        name: channelName,
+        type: ChannelType.GuildText,
+        parent: CATEGORY_ID,
+        permissionOverwrites: [
+          { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+          { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
+          { id: STAFF_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
+        ],
       });
 
-      const message = await interaction.fetchReply();
+      const embed = new EmbedBuilder()
+        .setTitle('🚑 INEM - Sistema de Ticket')
+        .setDescription(
+          `📣 Ticket aberto por <@${interaction.user.id}>.\n` +
+          `Aguarde atendimento por parte do <@&${STAFF_ROLE_ID}>.`
+        )
+        .setThumbnail('https://i.imgur.com/WqZT0Eq.png')
+        .setColor('#ffcc00')
+        .setTimestamp();
 
-      await message.react('✅');
-      await message.react('❌');
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('resgatar_ticket').setLabel('📥 Resgatar').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('adicionar_membro').setLabel('👤 Adicionar').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('fechar_ticket').setLabel('🔒 Fechar').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('deletar_ticket').setLabel('🗑️ Deletar').setStyle(ButtonStyle.Danger)
+      );
 
-      const filter = (reaction, user) =>
-        ['✅', '❌'].includes(reaction.emoji.name) &&
-        user.id === interaction.user.id;
+      await canal.send({
+        content: `<@&${STAFF_ROLE_ID}> | Ticket criado por <@${interaction.user.id}>`,
+        embeds: [embed],
+        components: [row]
+      });
 
-      try {
-        const collected = await message.awaitReactions({ filter, max: 1, time: 30000, errors: ['time'] });
-        const reaction = collected.first();
-
-        if (reaction.emoji.name === '✅') {
-          // Cria ticket
-          const numero = getNextTicketNumber();
-          const channelName = `ticket-${numero}`;
-
-          const canal = await interaction.guild.channels.create({
-            name: channelName,
-            type: ChannelType.GuildText,
-            parent: CATEGORY_ID,
-            permissionOverwrites: [
-              { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-              { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
-              { id: STAFF_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
-            ],
-          });
-
-          const embed = new EmbedBuilder()
-            .setTitle('🚑 INEM - Ticket de Emergência')
-            .setDescription(
-              `📣 Ticket aberto por <@${interaction.user.id}>.\n` +
-              `Aguarde atendimento por parte do <@&${STAFF_ROLE_ID}>.`
-            )
-            .setThumbnail('https://i.imgur.com/AfFp7pu.png')
-            .setColor('#ffcc00')
-            .setTimestamp();
-
-          const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('resgatar_ticket').setLabel('📥 Resgatar').setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId('adicionar_membro').setLabel('👤 Adicionar').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId('fechar_ticket').setLabel('🔒 Fechar').setStyle(ButtonStyle.Danger),
-            new ButtonBuilder().setCustomId('deletar_ticket').setLabel('🗑️ Deletar').setStyle(ButtonStyle.Danger)
-          );
-
-          await canal.send({
-            content: `<@&${STAFF_ROLE_ID}> | Ticket criado por <@${interaction.user.id}>`,
-            embeds: [embed],
-            components: [row]
-          });
-
-          if (LOG_CHANNEL_ID) {
-            const logChannel = await interaction.guild.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
-            if (logChannel) {
-              await logChannel.send(`📥 Ticket criado: ${canal} por <@${interaction.user.id}>`);
-            }
-          }
-
-          await interaction.followUp({ content: `✅ Ticket criado com sucesso: ${canal}`, ephemeral: true });
-        } else {
-          await interaction.followUp({ content: '❌ Cancelaste a criação do ticket.', ephemeral: true });
+      if (LOG_CHANNEL_ID) {
+        const logChannel = await interaction.guild.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
+        if (logChannel) {
+          await logChannel.send(`📥 Ticket criado: ${canal} por <@${interaction.user.id}>`);
         }
-      } catch {
-        await interaction.followUp({ content: '⏰ Tempo esgotado. Nenhum ticket foi criado.', ephemeral: true });
       }
+
+      await interaction.reply({ content: `✅ Ticket criado com sucesso: ${canal}`, ephemeral: true });
     }
 
+    // restante código dos botões sem mudança
     if (interaction.customId === 'resgatar_ticket') {
       await interaction.reply({ content: `📥 Ticket resgatado por <@${interaction.user.id}>.`, ephemeral: false });
     }
