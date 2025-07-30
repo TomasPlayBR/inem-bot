@@ -32,7 +32,8 @@ const {
   STAFF_ROLE_ID,
   CATEGORY_ID,
   PANEL_CHANNEL_ID,
-  LOG_CHANNEL_ID
+  LOG_CHANNEL_ID,
+  EVAL_LOG_CHANNEL_ID
 } = process.env;
 
 // Função para obter próximo número de ticket formatado
