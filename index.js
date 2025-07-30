@@ -20,28 +20,26 @@ const client = new Client({
   partials: [Partials.Channel],
 });
 
-// ⚙️ Configurações
 const TICKET_CATEGORY_ID = '1225264234624188426';
 const PANEL_CHANNEL_ID = '1225266760081735701';
 const STAFF_ROLE_ID = '1136777407982993418';
 let ticketCounter = 1;
 
-// 🟨 Enviar painel
+// Enviar painel de tickets com imagem nova
 async function sendTicketPanel() {
   const canal = await client.channels.fetch(PANEL_CHANNEL_ID);
   if (!canal) return console.log('❌ Canal do painel não encontrado.');
 
   const embed = new EmbedBuilder()
-    .setTitle('🚑 Abrir Ticket - INEM')
-    .setDescription('Clique no botão abaixo para contactar o INEM em RP.\n\n🔹 Apenas utilize em situações justificadas.\n🔹 Aguarde atendimento por um profissional.')
+    .setTitle('🚑 INEM | Suporte de Emergência')
+    .setDescription('Clique no botão abaixo para abrir um ticket com o INEM.\n\n📋 Só use em emergências roleplay.\n🕒 Aguarde atendimento.')
     .setColor('#007bff')
-    .setThumbnail('https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/INEM_ambulance_-_panoramio.jpg/320px-INEM_ambulance_-_panoramio.jpg')
+    .setImage('https://upload.wikimedia.org/wikipedia/commons/3/3f/INEM_ambulance_-_panoramio.jpg')
     .setFooter({ text: 'INEM - Emergência Médica', iconURL: client.user.displayAvatarURL() });
 
   const botao = new ButtonBuilder()
     .setCustomId('abrir_ticket')
-    .setLabel('Abrir Ticket')
-    .setEmoji('📩')
+    .setLabel('📩 Abrir Ticket')
     .setStyle(ButtonStyle.Success);
 
   const row = new ActionRowBuilder().addComponents(botao);
@@ -51,12 +49,11 @@ async function sendTicketPanel() {
 
 client.once('ready', async () => {
   console.log(`${client.user.tag} está online!`);
-  // await sendTicketPanel(); // descomenta se quiser que envie o painel ao iniciar
+  await sendTicketPanel(); // Enviar painel sempre que o bot reinicia
 });
 
 client.on('interactionCreate', async (interaction) => {
   if (interaction.isButton()) {
-    // 📩 Criar ticket
     if (interaction.customId === 'abrir_ticket') {
       const numero = ticketCounter.toString().padStart(2, '0');
       ticketCounter++;
@@ -74,48 +71,31 @@ client.on('interactionCreate', async (interaction) => {
 
       const embed = new EmbedBuilder()
         .setTitle('🎟️ Ticket Aberto')
-        .setDescription(`Olá <@${interaction.user.id}>!\nA equipa do INEM foi notificada. Responderemos brevemente.`)
+        .setDescription(`Olá <@${interaction.user.id}>, o INEM foi notificado.\nEm breve alguém irá te responder.`)
         .setColor('#00ffae')
         .setThumbnail('https://upload.wikimedia.org/wikipedia/commons/8/8d/INEM_logo.png')
         .setTimestamp();
 
       const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('resgatar_ticket')
-          .setLabel('📥 Resgatar')
-          .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-          .setCustomId('adicionar_membro')
-          .setLabel('➕ Adicionar')
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-          .setCustomId('fechar_ticket')
-          .setLabel('🔒 Fechar')
-          .setStyle(ButtonStyle.Danger),
-        new ButtonBuilder()
-          .setCustomId('deletar_ticket')
-          .setLabel('🗑️ Deletar')
-          .setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId('resgatar_ticket').setLabel('📥 Resgatar').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('adicionar_membro').setLabel('➕ Adicionar').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('fechar_ticket').setLabel('🔒 Fechar').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('deletar_ticket').setLabel('🗑️ Deletar').setStyle(ButtonStyle.Danger)
       );
 
-      await canal.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [row] });
-      await interaction.reply({ content: `✅ Ticket criado: ${canal}`, ephemeral: true });
+      // Notificar o cargo staff no canal criado
+      await canal.send({ content: `<@&${STAFF_ROLE_ID}> | <@${interaction.user.id}> abriu um ticket!`, embeds: [embed], components: [row] });
+
+      await interaction.reply({ content: `✅ Ticket criado com sucesso: ${canal}`, ephemeral: true });
     }
 
-    // 📥 Resgatar ticket
     if (interaction.customId === 'resgatar_ticket') {
-      const embed = new EmbedBuilder()
-        .setDescription(`🎫 Ticket resgatado por <@${interaction.user.id}>.`)
-        .setColor('#ffd700');
+      const embed = new EmbedBuilder().setDescription(`🎫 Ticket resgatado por <@${interaction.user.id}>.`).setColor('#ffd700');
       await interaction.reply({ embeds: [embed] });
     }
 
-    // ➕ Abrir modal para adicionar alguém
     if (interaction.customId === 'adicionar_membro') {
-      const modal = new ModalBuilder()
-        .setCustomId('modal_add_member')
-        .setTitle('➕ Adicionar ao Ticket');
-
+      const modal = new ModalBuilder().setCustomId('modal_add_member').setTitle('➕ Adicionar ao Ticket');
       const input = new TextInputBuilder()
         .setCustomId('user_id')
         .setLabel('ID do utilizador ou menção')
@@ -125,29 +105,21 @@ client.on('interactionCreate', async (interaction) => {
 
       const row = new ActionRowBuilder().addComponents(input);
       modal.addComponents(row);
-
       await interaction.showModal(modal);
     }
 
-    // 🔒 Fechar ticket
     if (interaction.customId === 'fechar_ticket') {
-      const embed = new EmbedBuilder()
-        .setDescription('🔒 Este ticket será fechado em 5 segundos...')
-        .setColor('#ff6961');
+      const embed = new EmbedBuilder().setDescription('🔒 Este ticket será fechado em 5 segundos...').setColor('#ff6961');
       await interaction.reply({ embeds: [embed] });
-      setTimeout(() => {
-        interaction.channel.delete().catch(console.error);
-      }, 5000);
+      setTimeout(() => interaction.channel.delete().catch(console.error), 5000);
     }
 
-    // 🗑️ Deletar ticket
     if (interaction.customId === 'deletar_ticket') {
       await interaction.reply({ content: '🗑️ Ticket deletado.', ephemeral: true });
       await interaction.channel.delete().catch(console.error);
     }
   }
 
-  // 📩 Submissão do modal
   if (interaction.type === InteractionType.ModalSubmit && interaction.customId === 'modal_add_member') {
     const userInput = interaction.fields.getTextInputValue('user_id');
     const userId = userInput.replace(/[<@!>]/g, '');
