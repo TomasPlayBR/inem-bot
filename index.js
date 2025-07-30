@@ -245,23 +245,22 @@ client.on('interactionCreate', async (interaction) => {
         const ticketNumber = ticketNumberMatch ? ticketNumberMatch[0] : '??';
 
         // Log da avaliação no canal de logs
-        if (LOG_CHANNEL_ID) {
-          const logChannel = await interaction.guild.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
-          if (logChannel) {
-            const embed = new EmbedBuilder()
-              .setTitle('📝 Nova Avaliação de Ticket')
-              .addFields(
-                { name: 'Usuário', value: `<@${interaction.user.id}>`, inline: true },
-                { name: 'Ticket', value: `#${ticketNumber}`, inline: true },
-                { name: 'Avaliação', value: avaliacao }
-              )
-              .setColor('#00ff00')
-              .setTimestamp();
+        if (EVAL_LOG_CHANNEL_ID) {
+  const evalLogChannel = await interaction.guild.channels.fetch(EVAL_LOG_CHANNEL_ID).catch(() => null);
+  if (evalLogChannel) {
+    const embed = new EmbedBuilder()
+      .setTitle('📝 Nova Avaliação de Ticket')
+      .addFields(
+        { name: 'Usuário', value: `<@${interaction.user.id}>`, inline: true },
+        { name: 'Ticket', value: `#${ticketNumber}`, inline: true },
+        { name: 'Avaliação', value: avaliacao }
+      )
+      .setColor('#00ff00')
+      .setTimestamp();
 
-            await logChannel.send({ embeds: [embed] });
-          }
-        }
-
+    await evalLogChannel.send({ embeds: [embed] });
+  }
+}
         await interaction.reply({ content: 'Obrigado pela sua avaliação! O ticket será fechado agora.', ephemeral: true });
         // Fecha o ticket após avaliação (deleta canal)
         setTimeout(() => {
