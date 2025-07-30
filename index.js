@@ -14,7 +14,6 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  InteractionType,
 } = require('discord.js');
 
 const client = new Client({
@@ -35,6 +34,7 @@ const {
   LOG_CHANNEL_ID
 } = process.env;
 
+// Função para obter próximo número de ticket formatado
 function getNextTicketNumber() {
   const data = JSON.parse(fs.readFileSync('contador.json'));
   const number = data.ticketNumber;
@@ -53,7 +53,7 @@ async function sendPanel(channel) {
     )
     .setColor('#1e90ff')
     .setThumbnail('https://i.imgur.com/yaztUeK.png')
-    .setImage('https://i.imgur.com/yaztUeK.png')
+    .setImage('https://i.imgur.com/pUiboY4.png')
     .setFooter({ text: 'INEM Sucesso Roleplay - TomasPlayBR', iconURL: client.user.displayAvatarURL() });
 
   const row = new ActionRowBuilder().addComponents(
@@ -99,13 +99,15 @@ client.on('interactionCreate', async (interaction) => {
           .setColor('#ffcc00')
           .setTimestamp();
 
+        // Botões de controle
         const botoes = new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId('resgatar_ticket').setLabel('🎟️ Resgatar').setStyle(ButtonStyle.Primary),
           new ButtonBuilder().setCustomId('fechar_ticket').setLabel('🔒 Fechar').setStyle(ButtonStyle.Secondary),
           new ButtonBuilder().setCustomId('deletar_ticket').setLabel('🗑️ Deletar').setStyle(ButtonStyle.Danger),
-          new ButtonBuilder().setCustomId('adicionar_membro').setLabel('➕ Adicionar').setStyle(ButtonStyle.Success),
+          new ButtonBuilder().setCustomId('adicionar_usuario').setLabel('➕ Adicionar membro').setStyle(ButtonStyle.Success)
         );
 
+        // Menu de assunto
         const selectAssunto = new ActionRowBuilder().addComponents(
           new StringSelectMenuBuilder()
             .setCustomId('select_assunto')
@@ -117,10 +119,17 @@ client.on('interactionCreate', async (interaction) => {
             ])
         );
 
+        // Mensagem principal com botões
         await canal.send({
-          content: `<@&${STAFF_ROLE_ID}> | Ticket criado por <@${interaction.user.id}>\n\n**Qual o assunto?**`,
+          content: `<@&${STAFF_ROLE_ID}> | Ticket criado por <@${interaction.user.id}>`,
           embeds: [embed],
-          components: [botoes, selectAssunto],
+          components: [botoes],
+        });
+
+        // Mensagem secundária com escolha de assunto
+        await canal.send({
+          content: `📝 Para prosseguir escolha um dos assuntos que se associa ao que você quer.`,
+          components: [selectAssunto],
         });
 
         if (LOG_CHANNEL_ID) {
@@ -133,25 +142,24 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.reply({ content: `✅ Ticket criado com sucesso: ${canal}`, ephemeral: true });
       }
 
-      if (interaction.customId === 'adicionar_membro') {
+      // Botões administrativos
+      if (interaction.customId === 'adicionar_usuario') {
         const modal = new ModalBuilder()
           .setCustomId('modal_add_user')
-          .setTitle('Adicionar Membro ao Ticket');
-
-        const userInput = new TextInputBuilder()
-          .setCustomId('user_id')
-          .setLabel('ID do usuário ou menção')
-          .setStyle(TextInputStyle.Short)
-          .setPlaceholder('Ex: 123456789012345678 ou @user')
-          .setRequired(true);
-
-        const row = new ActionRowBuilder().addComponents(userInput);
-        modal.addComponents(row);
-
+          .setTitle('Adicionar membro ao ticket')
+          .addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('user_id')
+                .setLabel('ID ou menção do usuário')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true)
+            )
+          );
         await interaction.showModal(modal);
       }
 
-      // Aqui você pode adicionar handlers para resgatar, fechar, deletar se quiser.
+      // Aqui você pode implementar resgatar, fechar, deletar se quiser
     }
 
     if (interaction.isStringSelectMenu()) {
@@ -163,18 +171,16 @@ client.on('interactionCreate', async (interaction) => {
           resposta = `Olá <@${interaction.user.id}>, por favor preenche isto:\n\n` +
             `Nome:\nId:\nIdade:\nJá esteve no INEM antes?\nPorque queres entrar no INEM?`;
         } else if (escolha === 'duvidas') {
-          resposta = `Qual a tua dúvida? Por favor, escreve-a aqui para que possamos ajudar.`;
+          resposta = `Olá <@${interaction.user.id}>, qual é a tua dúvida?`;
         } else if (escolha === 'denuncias') {
-          resposta = `Quem queres denunciar? Por favor, diz-nos o nome ou ID da pessoa.`;
-        } else {
-          resposta = `Assunto inválido.`;
+          resposta = `Olá <@${interaction.user.id}>, quem queres denunciar?`;
         }
 
         await interaction.update({ content: resposta, components: [] });
       }
     }
 
-    if (interaction.type === InteractionType.ModalSubmit) {
+    if (interaction.isModalSubmit()) {
       if (interaction.customId === 'modal_add_user') {
         const userId = interaction.fields.getTextInputValue('user_id').replace(/[<@!>]/g, '');
         try {
