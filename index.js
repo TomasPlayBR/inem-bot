@@ -52,8 +52,8 @@ async function sendPanel(channel) {
       'Após abrir o ticket, aguarde que um membro da nossa equipe te atenda o mais rápido possível.'
     )
     .setColor('#1e90ff')
-    .setThumbnail('https://imgur.com/yaztUeK') // Corrigido link para imagem miniatura
-    .setImage('https://imgur.com/pUiboY4')     // Corrigido link para imagem principal
+    .setThumbnail('https://i.imgur.com/yaztUeK.png') // Corrigido link para imagem miniatura
+    .setImage('https://i.imgur.com/pUiboY4.png')     // Corrigido link para imagem principal
     .setFooter({ text: 'INEM Sucesso Roleplay - TomasPlayBR', iconURL: client.user.displayAvatarURL() });
 
   const row = new ActionRowBuilder().addComponents(
@@ -97,7 +97,7 @@ client.on('interactionCreate', async (interaction) => {
           `📣 Ticket aberto por <@${interaction.user.id}>.\n` +
           `Aguarde atendimento por parte do <@&${STAFF_ROLE_ID}>.`
         )
-        .setThumbnail('https://imgur.com/yTmXvjg') // Exemplo de thumbnail válida
+        .setThumbnail('https://i.imgur.com/yTmXvjg.png') // Exemplo de thumbnail válida
         .setColor('#ffcc00')
         .setTimestamp();
 
