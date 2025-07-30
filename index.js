@@ -1,14 +1,15 @@
 require('dotenv').config();
+const fs = require('fs');
 const {
   Client,
   GatewayIntentBits,
   Partials,
   EmbedBuilder,
-  ActionRowBuilder,
+  PermissionsBitField,
+  ChannelType,
   ButtonBuilder,
   ButtonStyle,
-  ChannelType,
-  PermissionsBitField,
+  ActionRowBuilder,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
@@ -16,114 +17,153 @@ const {
 } = require('discord.js');
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
-  partials: [Partials.Channel],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMessageReactions
+  ],
+  partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
-const TICKET_CATEGORY_ID = '1225264234624188426';
-const PANEL_CHANNEL_ID = '1225266760081735701';
-const STAFF_ROLE_ID = '1136777407982993418';
-let ticketCounter = 1;
+const {
+  DISCORD_TOKEN,
+  STAFF_ROLE_ID,
+  CATEGORY_ID,
+  PANEL_CHANNEL_ID,
+  LOG_CHANNEL_ID
+} = process.env;
 
-// Enviar painel de tickets com imagem nova
-async function sendTicketPanel() {
-  const canal = await client.channels.fetch(PANEL_CHANNEL_ID);
-  if (!canal) return console.log('❌ Canal do painel não encontrado.');
+function getNextTicketNumber() {
+  const data = JSON.parse(fs.readFileSync('contador.json'));
+  const number = data.ticketNumber;
+  data.ticketNumber++;
+  fs.writeFileSync('contador.json', JSON.stringify(data));
+  return number;
+}
 
+async function sendPanel(channel) {
   const embed = new EmbedBuilder()
-    .setTitle('🚑 INEM | Suporte de Emergência')
-    .setDescription('Clique no botão abaixo para abrir um ticket com o INEM.\n\n📋 Só use em emergências roleplay.\n🕒 Aguarde atendimento.')
-    .setColor('#007bff')
-    .setImage('https://upload.wikimedia.org/wikipedia/commons/3/3f/INEM_ambulance_-_panoramio.jpg')
-    .setFooter({ text: 'INEM - Emergência Médica', iconURL: client.user.displayAvatarURL() });
+    .setTitle('🆘 INEM | Sistema de Atendimento')
+    .setDescription('Clique no botão abaixo para te ajudar-mos.\n\n⚠️ **Estamos abertos a 24h.**')
+    .setImage('https://www.inem.pt/wp-content/uploads/2022/06/noticia-inem-inquerito-partes-interessadas-e1654738010474.jpg')
+    .setColor('#1e90ff')
+    .setFooter({ text: 'INEM Sucesso Roleplay - TomasPlayBR', iconURL: client.user.displayAvatarURL() });
 
-  const botao = new ButtonBuilder()
-    .setCustomId('abrir_ticket')
-    .setLabel('📩 Abrir Ticket')
-    .setStyle(ButtonStyle.Success);
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('confirmar_ticket')
+      .setLabel('📩 Pedir Ajuda')
+      .setStyle(ButtonStyle.Success)
+  );
 
-  const row = new ActionRowBuilder().addComponents(botao);
-
-  await canal.send({ embeds: [embed], components: [row] });
+  await channel.send({ embeds: [embed], components: [row] });
 }
 
 client.once('ready', async () => {
-  console.log(`${client.user.tag} está online!`);
-  await sendTicketPanel(); // Enviar painel sempre que o bot reinicia
+  console.log(`✅ ${client.user.tag} online.`);
+  const panelChannel = await client.channels.fetch(PANEL_CHANNEL_ID);
+  await sendPanel(panelChannel);
 });
 
 client.on('interactionCreate', async (interaction) => {
   if (interaction.isButton()) {
-    if (interaction.customId === 'abrir_ticket') {
-      const numero = ticketCounter.toString().padStart(2, '0');
-      ticketCounter++;
-
-      const canal = await interaction.guild.channels.create({
-        name: `ticket-${numero}`,
-        type: ChannelType.GuildText,
-        parent: TICKET_CATEGORY_ID,
-        permissionOverwrites: [
-          { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-          { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
-          { id: STAFF_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
-        ],
+    if (interaction.customId === 'confirmar_ticket') {
+      const confirmMsg = await interaction.reply({
+        content: `⚠️ <@${interaction.user.id}>, Tens a certeza que queres abrir um ticket no INEM?`,
+        fetchReply: true,
+        ephemeral: false
       });
 
-      const embed = new EmbedBuilder()
-        .setTitle('🎟️ Ticket Aberto')
-        .setDescription(`Olá <@${interaction.user.id}>, o INEM foi notificado.\nEm breve alguém irá te responder.`)
-        .setColor('#00ffae')
-        .setThumbnail('https://upload.wikimedia.org/wikipedia/commons/8/8d/INEM_logo.png')
-        .setTimestamp();
+      await confirmMsg.react('✅');
+      await confirmMsg.react('❌');
 
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('resgatar_ticket').setLabel('📥 Resgatar').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('adicionar_membro').setLabel('➕ Adicionar').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('fechar_ticket').setLabel('🔒 Fechar').setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId('deletar_ticket').setLabel('🗑️ Deletar').setStyle(ButtonStyle.Danger)
-      );
+      const filter = (reaction, user) =>
+        ['✅', '❌'].includes(reaction.emoji.name) &&
+        user.id === interaction.user.id;
 
-      // Notificar o cargo staff no canal criado
-      await canal.send({ content: `<@&${STAFF_ROLE_ID}> | <@${interaction.user.id}> abriu um ticket!`, embeds: [embed], components: [row] });
+      confirmMsg.awaitReactions({ filter, max: 1, time: 15000, errors: ['time'] })
+        .then(async (collected) => {
+          const reaction = collected.first();
 
-      await interaction.reply({ content: `✅ Ticket criado com sucesso: ${canal}`, ephemeral: true });
+          if (reaction.emoji.name === '✅') {
+            const numero = getNextTicketNumber();
+            const channelName = `ticket-${numero}`;
+
+            const canal = await interaction.guild.channels.create({
+              name: channelName,
+              type: ChannelType.GuildText,
+              parent: CATEGORY_ID,
+              permissionOverwrites: [
+                { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
+                { id: STAFF_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
+              ],
+            });
+
+            const embed = new EmbedBuilder()
+              .setTitle('🚑 INEM - Ticket de Emergência')
+              .setDescription(`📣 Ticket aberto por <@${interaction.user.id}>.\nAguarde atendimento por parte do <@&${1136777407982993418}>.`)
+              .setThumbnail('https://www.inem.pt/wp-content/uploads/2021/12/inem-noticia-esclarecimento-testagem.jpg')
+              .setColor('#ffcc00')
+              .setTimestamp();
+
+            const row = new ActionRowBuilder().addComponents(
+              new ButtonBuilder().setCustomId('resgatar_ticket').setLabel('📥 Resgatar').setStyle(ButtonStyle.Secondary),
+              new ButtonBuilder().setCustomId('adicionar_membro').setLabel('👤 Adicionar').setStyle(ButtonStyle.Primary),
+              new ButtonBuilder().setCustomId('fechar_ticket').setLabel('🔒 Fechar').setStyle(ButtonStyle.Danger),
+              new ButtonBuilder().setCustomId('deletar_ticket').setLabel('🗑️ Deletar').setStyle(ButtonStyle.Danger)
+            );
+
+            await canal.send({
+              content: `<@&${STAFF_ROLE_ID}> | Ticket criado por <@${interaction.user.id}>`,
+              embeds: [embed],
+              components: [row]
+            });
+
+            if (LOG_CHANNEL_ID) {
+              const logChannel = await interaction.guild.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
+              if (logChannel) {
+                await logChannel.send(`📥 Ticket criado: ${canal} por <@${interaction.user.id}>`);
+              }
+            }
+          } else {
+            await interaction.followUp({ content: '❌ Cancelaste a criação do ticket.', ephemeral: true });
+          }
+        })
+        .catch(() => {
+          interaction.followUp({ content: '⏰ Tempo esgotado. Não foi criado nenhum ticket.', ephemeral: true });
+        });
     }
 
     if (interaction.customId === 'resgatar_ticket') {
-      const embed = new EmbedBuilder().setDescription(`🎫 Ticket resgatado por <@${interaction.user.id}>.`).setColor('#ffd700');
-      await interaction.reply({ embeds: [embed] });
+      await interaction.reply({ content: `📥 Ticket resgatado por <@${interaction.user.id}>.`, ephemeral: false });
     }
 
     if (interaction.customId === 'adicionar_membro') {
-      const modal = new ModalBuilder().setCustomId('modal_add_member').setTitle('➕ Adicionar ao Ticket');
+      const modal = new ModalBuilder().setCustomId('modal_add_user').setTitle('Adicionar Membro ao Ticket');
       const input = new TextInputBuilder()
         .setCustomId('user_id')
         .setLabel('ID do utilizador ou menção')
         .setStyle(TextInputStyle.Short)
-        .setPlaceholder('Ex: 1234567890 ou @nome')
         .setRequired(true);
-
-      const row = new ActionRowBuilder().addComponents(input);
-      modal.addComponents(row);
+      modal.addComponents(new ActionRowBuilder().addComponents(input));
       await interaction.showModal(modal);
     }
 
     if (interaction.customId === 'fechar_ticket') {
-      const embed = new EmbedBuilder().setDescription('🔒 Este ticket será fechado em 5 segundos...').setColor('#ff6961');
-      await interaction.reply({ embeds: [embed] });
-      setTimeout(() => interaction.channel.delete().catch(console.error), 5000);
+      await interaction.reply({ content: '🔒 Ticket será fechado em 5 segundos...', ephemeral: true });
+      setTimeout(() => interaction.channel.delete().catch(() => null), 5000);
     }
 
     if (interaction.customId === 'deletar_ticket') {
-      await interaction.reply({ content: '🗑️ Ticket deletado.', ephemeral: true });
-      await interaction.channel.delete().catch(console.error);
+      await interaction.reply({ content: '🗑️ Ticket deletado com sucesso.', ephemeral: true });
+      await interaction.channel.delete().catch(() => null);
     }
   }
 
-  if (interaction.type === InteractionType.ModalSubmit && interaction.customId === 'modal_add_member') {
-    const userInput = interaction.fields.getTextInputValue('user_id');
-    const userId = userInput.replace(/[<@!>]/g, '');
-
+  if (interaction.type === InteractionType.ModalSubmit && interaction.customId === 'modal_add_user') {
+    const userId = interaction.fields.getTextInputValue('user_id').replace(/[<@!>]/g, '');
     try {
       const member = await interaction.guild.members.fetch(userId);
       await interaction.channel.permissionOverwrites.create(member.id, {
@@ -131,12 +171,11 @@ client.on('interactionCreate', async (interaction) => {
         SendMessages: true,
         ReadMessageHistory: true,
       });
-
-      await interaction.reply({ content: `✅ <@${member.id}> adicionado ao ticket.`, ephemeral: false });
-    } catch (err) {
-      await interaction.reply({ content: '❌ Não consegui adicionar este membro. Verifica o ID ou se ele está no servidor.', ephemeral: true });
+      await interaction.reply({ content: `✅ <@${member.id}> foi adicionado ao ticket.`, ephemeral: false });
+    } catch {
+      await interaction.reply({ content: '❌ Utilizador inválido.', ephemeral: true });
     }
   }
 });
 
-client.login(process.env.DISCORD_TOKEN);
+client.login(DISCORD_TOKEN);
