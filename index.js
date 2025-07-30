@@ -14,6 +14,7 @@ const {
   TextInputBuilder,
   TextInputStyle,
   InteractionType,
+  StringSelectMenuBuilder
 } = require('discord.js');
 
 const client = new Client({
@@ -73,7 +74,6 @@ client.once('ready', async () => {
 
 client.on('interactionCreate', async (interaction) => {
   try {
-    // Abrir ticket
     if (interaction.isButton() && interaction.customId === 'confirmar_ticket') {
       const numero = getNextTicketNumber();
       const channelName = `ticket-${numero}`;
@@ -91,18 +91,9 @@ client.on('interactionCreate', async (interaction) => {
 
       const embed = new EmbedBuilder()
         .setTitle('🚑 INEM - Sistema de Ticket')
-        .setDescription(
-          `📣 Ticket aberto por <@${interaction.user.id}>.\n` +
-          `Aguarde atendimento por parte do <@&${STAFF_ROLE_ID}>.`
-        )
+        .setDescription(`📣 Ticket aberto por <@${interaction.user.id}>.\nAguarde atendimento por parte do <@&${STAFF_ROLE_ID}>.`)
         .setColor('#ffcc00')
         .setTimestamp();
-
-      const assuntoRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('assunto_recrutamento').setLabel('Recrutamento').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('assunto_duvidas').setLabel('Dúvidas').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('assunto_denuncias').setLabel('Denúncias').setStyle(ButtonStyle.Danger),
-      );
 
       const painelRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('resgatar_ticket').setLabel('🎟️ Resgatar').setStyle(ButtonStyle.Secondary),
@@ -111,15 +102,22 @@ client.on('interactionCreate', async (interaction) => {
         new ButtonBuilder().setCustomId('adicionar_membro').setLabel('➕ Adicionar membro').setStyle(ButtonStyle.Success),
       );
 
-      await canal.send({
-        content: `<@&${STAFF_ROLE_ID}> | Ticket criado por <@${interaction.user.id}>`,
-        embeds: [embed],
-        components: [painelRow],
-      });
+      const selectMenu = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('assunto_menu')
+          .setPlaceholder('Escolha o assunto do seu ticket')
+          .addOptions([
+            { label: 'Recrutamento', value: 'recrutamento', emoji: '📝' },
+            { label: 'Dúvidas', value: 'duvidas', emoji: '❓' },
+            { label: 'Denúncia', value: 'denuncia', emoji: '🚨' },
+          ])
+      );
+
+      await canal.send({ content: `<@&${STAFF_ROLE_ID}> | Ticket criado por <@${interaction.user.id}>`, embeds: [embed], components: [painelRow] });
 
       await canal.send({
-        content: `📝 Para prosseguir escolha um dos assuntos que se associa ao que você quer.`,
-        components: [assuntoRow],
+        content: '🟨 **Para prosseguir, escolha um dos assuntos que se associa ao que você quer:**',
+        components: [selectMenu]
       });
 
       if (LOG_CHANNEL_ID) {
@@ -133,66 +131,62 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
 
-    // Botões de assunto
-    if (['assunto_recrutamento', 'assunto_duvidas', 'assunto_denuncias'].includes(interaction.customId)) {
-      const channel = interaction.channel;
-      const permission = channel.permissionOverwrites.cache.get(interaction.user.id);
-      if (!permission || !permission.allow.has(PermissionsBitField.Flags.ViewChannel)) {
-        return interaction.reply({ content: '❌ Só quem abriu o ticket pode escolher o assunto.', ephemeral: true });
-      }
-
+    // Select Menu de Assunto
+    if (interaction.isStringSelectMenu() && interaction.customId === 'assunto_menu') {
+      const choice = interaction.values[0];
       let replyMessage = '';
-      if (interaction.customId === 'assunto_recrutamento') {
-        replyMessage = `Olá <@${interaction.user.id}>, por favor preenche isto:\n\nNome:\nId:\nIdade:\nJá esteve no INEM antes?\nPorque queres entrar no INEM?`;
-      } else if (interaction.customId === 'assunto_duvidas') {
-        replyMessage = `Olá <@${interaction.user.id}>, qual é a tua dúvida?`;
-      } else if (interaction.customId === 'assunto_denuncias') {
-        replyMessage = `Olá <@${interaction.user.id}>, quem queres denunciar?`;
+
+      if (choice === 'recrutamento') {
+        replyMessage = `📝 Olá <@${interaction.user.id}>, por favor preenche isto:\n\nNome:\nId:\nIdade:\nJá esteve no INEM antes?\nPorque queres entrar no INEM?`;
+      } else if (choice === 'duvidas') {
+        replyMessage = `❓ Olá <@${interaction.user.id}>, qual é a tua dúvida?`;
+      } else if (choice === 'denuncia') {
+        replyMessage = `🚨 Olá <@${interaction.user.id}>, quem queres denunciar?`;
       }
 
-      await interaction.update({ content: interaction.message.content, components: [] });
-      await channel.send(replyMessage);
+      await interaction.update({ components: [] });
+      await interaction.channel.send(replyMessage);
       return;
     }
 
-    // Painel: Fechar ticket
-    if (interaction.customId === 'fechar_ticket') {
-      await interaction.channel.permissionOverwrites.edit(interaction.guild.id, { SendMessages: false });
-      await interaction.reply({ content: '🔒 Ticket fechado.', ephemeral: true });
+    if (interaction.isButton()) {
+      const channel = interaction.channel;
+
+      if (interaction.customId === 'fechar_ticket') {
+        await channel.permissionOverwrites.edit(interaction.guild.id, { SendMessages: false });
+        await channel.send(`🔒 Ticket fechado por: <@${interaction.user.id}>`);
+        await interaction.reply({ content: '🔒 Ticket foi fechado.', ephemeral: true });
+      }
+
+      else if (interaction.customId === 'resgatar_ticket') {
+        await channel.permissionOverwrites.edit(interaction.guild.id, { SendMessages: true });
+        await channel.send(`🎟️ Ticket reaberto por: <@${interaction.user.id}>`);
+        await interaction.reply({ content: '🎟️ Ticket reaberto.', ephemeral: true });
+      }
+
+      else if (interaction.customId === 'deletar_ticket') {
+        await interaction.reply({ content: '🗑️ Ticket será deletado em 5 segundos.', ephemeral: true });
+        setTimeout(() => {
+          channel.delete().catch(() => {});
+        }, 5000);
+      }
+
+      else if (interaction.customId === 'adicionar_membro') {
+        const modal = new ModalBuilder().setCustomId('modal_add_user').setTitle('Adicionar Membro');
+
+        const input = new TextInputBuilder()
+          .setCustomId('user_id')
+          .setLabel('ID do usuário')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true);
+
+        const row = new ActionRowBuilder().addComponents(input);
+        modal.addComponents(row);
+        await interaction.showModal(modal);
+      }
     }
 
-    // Painel: Resgatar ticket
-    if (interaction.customId === 'resgatar_ticket') {
-      await interaction.channel.permissionOverwrites.edit(interaction.guild.id, { SendMessages: true });
-      await interaction.reply({ content: '🎟️ Ticket reaberto.', ephemeral: true });
-    }
-
-    // Painel: Deletar ticket
-    if (interaction.customId === 'deletar_ticket') {
-      await interaction.reply({ content: '🗑️ Ticket será deletado em 5 segundos.', ephemeral: true });
-      setTimeout(() => {
-        interaction.channel.delete().catch(() => {});
-      }, 5000);
-    }
-
-    // Painel: Adicionar membro (modal)
-    if (interaction.customId === 'adicionar_membro') {
-      const modal = new ModalBuilder()
-        .setCustomId('modal_add_user')
-        .setTitle('Adicionar Membro');
-
-      const input = new TextInputBuilder()
-        .setCustomId('user_id')
-        .setLabel('ID do usuário')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-      const row = new ActionRowBuilder().addComponents(input);
-      modal.addComponents(row);
-      await interaction.showModal(modal);
-    }
-
-    // Modal submit
+    // Modal para adicionar membro
     if (interaction.type === InteractionType.ModalSubmit && interaction.customId === 'modal_add_user') {
       const userId = interaction.fields.getTextInputValue('user_id').replace(/[<@!>]/g, '');
       try {
@@ -204,10 +198,9 @@ client.on('interactionCreate', async (interaction) => {
         });
         await interaction.reply({ content: `✅ <@${member.id}> foi adicionado ao ticket.`, ephemeral: true });
       } catch {
-        await interaction.reply({ content: '❌ Utilizador inválido.', ephemeral: true });
+        await interaction.reply({ content: '❌ ID inválido ou membro não encontrado.', ephemeral: true });
       }
     }
-
   } catch (error) {
     console.error('Erro:', error);
     if (interaction.replied || interaction.deferred) {
