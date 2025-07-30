@@ -139,7 +139,7 @@ client.on('interactionCreate', async (interaction) => {
 
         const input = new TextInputBuilder()
           .setCustomId('avaliacao')
-          .setLabel('Por favor, avalie o atendimento (1-5 estrelas, sugestões, etc)')
+          .setLabel('Avalie o atendimento (1-5 estrelas)')
           .setStyle(TextInputStyle.Paragraph)
           .setPlaceholder('Sua avaliação aqui...')
           .setRequired(true);
