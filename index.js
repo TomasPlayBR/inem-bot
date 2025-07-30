@@ -95,7 +95,7 @@ client.on('interactionCreate', async (interaction) => {
         // Envia mensagem inicial com painel de ações (fechar, resgatar, deletar, adicionar membro)
         const ticketEmbed = new EmbedBuilder()
           .setTitle(`🚑 Ticket #${numero} - INEM`)
-          .setDescription(`Olá <@${interaction.user.id}>, aguarde atendimento.\n\nPara prosseguir, escolha um dos assuntos abaixo.`)
+          .setDescription(`Olá, <@&${staffRoleId}>, um novo ticket foi aberto por <@${interaction.user.id}>, aguarde atendimento. \n\nPara prosseguir, escolha um dos assuntos abaixo.`)
           .setColor('#ffcc00')
           .setTimestamp();
 
