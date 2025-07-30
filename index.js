@@ -53,7 +53,7 @@ async function sendPanel(channel) {
     )
     .setColor('#1e90ff')
     .setThumbnail('https://i.imgur.com/AfFp7pu.png')
-    .setImage('https://i.imgur.com/wSTFkRM.png'')
+    .setImage('https://i.imgur.com/wSTFkRM.png')
     .setFooter({ text: 'INEM Sucesso Roleplay - TomasPlayBR', iconURL: client.user.displayAvatarURL() });
 
   const row = new ActionRowBuilder().addComponents(
@@ -116,7 +116,7 @@ client.on('interactionCreate', async (interaction) => {
               `📣 Ticket aberto por <@${interaction.user.id}>.\n` +
               `Aguarde atendimento por parte do <@&${STAFF_ROLE_ID}>.`
             )
-            .setThumbnail('https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Logo_INEM_Portugal.png/320px-Logo_INEM_Portugal.png')
+            .setThumbnail('https://i.imgur.com/AfFp7pu.png')
             .setColor('#ffcc00')
             .setTimestamp();
 
