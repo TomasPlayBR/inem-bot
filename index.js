@@ -53,7 +53,8 @@ async function sendPanel(channel) {
       'Após abrir o ticket, aguarde que um membro da nossa equipe te atenda o mais rápido possível.'
     )
     .setColor('#1e90ff')
-    .setThumbnail('https://i.imgur.com/pUiboY4.png') // Imagem que você mandou
+    .setThumbnail('https://i.imgur.com/yaztUeK.png') // Imagem que você mandou
+    .setImage('https://i.imgur.com/pUiboY4.png') 
     .setFooter({ text: 'INEM Sucesso Roleplay - TomasPlayBR', iconURL: client.user.displayAvatarURL() });
 
   const row = new ActionRowBuilder().addComponents(
