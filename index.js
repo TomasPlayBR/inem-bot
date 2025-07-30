@@ -52,8 +52,8 @@ async function sendPanel(channel) {
       'Após abrir o ticket, aguarde que um membro da nossa equipe te atenda o mais rápido possível.'
     )
     .setColor('#1e90ff')
-    .setThumbnail('https://i.imgur.com/WqZT0Eq.png') // thumbnail direto
-    .setImage('https://i.imgur.com/4Z2gn16.jpg') // imagem principal direta
+    .setThumbnail('https://imgur.com/yaztUeK') // Corrigido link para imagem miniatura
+    .setImage('https://imgur.com/pUiboY4')     // Corrigido link para imagem principal
     .setFooter({ text: 'INEM Sucesso Roleplay - TomasPlayBR', iconURL: client.user.displayAvatarURL() });
 
   const row = new ActionRowBuilder().addComponents(
@@ -73,9 +73,10 @@ client.once('ready', async () => {
 });
 
 client.on('interactionCreate', async (interaction) => {
-  if (interaction.isButton()) {
-    if (interaction.customId === 'confirmar_ticket') {
-      // Abre o ticket direto sem confirmação
+  if (!interaction.isButton()) return;
+
+  if (interaction.customId === 'confirmar_ticket') {
+    try {
       const numero = getNextTicketNumber();
       const channelName = `ticket-${numero}`;
 
@@ -96,7 +97,7 @@ client.on('interactionCreate', async (interaction) => {
           `📣 Ticket aberto por <@${interaction.user.id}>.\n` +
           `Aguarde atendimento por parte do <@&${STAFF_ROLE_ID}>.`
         )
-        .setThumbnail('https://i.imgur.com/WqZT0Eq.png')
+        .setThumbnail('https://imgur.com/yTmXvjg') // Exemplo de thumbnail válida
         .setColor('#ffcc00')
         .setTimestamp();
 
@@ -121,33 +122,35 @@ client.on('interactionCreate', async (interaction) => {
       }
 
       await interaction.reply({ content: `✅ Ticket criado com sucesso: ${canal}`, ephemeral: true });
+    } catch (error) {
+      console.error(error);
+      await interaction.reply({ content: '❌ Ocorreu um erro ao criar o ticket.', ephemeral: true });
     }
+  }
 
-    // restante código dos botões sem mudança
-    if (interaction.customId === 'resgatar_ticket') {
-      await interaction.reply({ content: `📥 Ticket resgatado por <@${interaction.user.id}>.`, ephemeral: false });
-    }
+  if (interaction.customId === 'resgatar_ticket') {
+    await interaction.reply({ content: `📥 Ticket resgatado por <@${interaction.user.id}>.`, ephemeral: false });
+  }
 
-    if (interaction.customId === 'adicionar_membro') {
-      const modal = new ModalBuilder().setCustomId('modal_add_user').setTitle('Adicionar Membro ao Ticket');
-      const input = new TextInputBuilder()
-        .setCustomId('user_id')
-        .setLabel('ID do utilizador ou menção')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-      modal.addComponents(new ActionRowBuilder().addComponents(input));
-      await interaction.showModal(modal);
-    }
+  if (interaction.customId === 'adicionar_membro') {
+    const modal = new ModalBuilder().setCustomId('modal_add_user').setTitle('Adicionar Membro ao Ticket');
+    const input = new TextInputBuilder()
+      .setCustomId('user_id')
+      .setLabel('ID do utilizador ou menção')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true);
+    modal.addComponents(new ActionRowBuilder().addComponents(input));
+    await interaction.showModal(modal);
+  }
 
-    if (interaction.customId === 'fechar_ticket') {
-      await interaction.reply({ content: '🔒 Ticket será fechado em 5 segundos...', ephemeral: true });
-      setTimeout(() => interaction.channel.delete().catch(() => null), 5000);
-    }
+  if (interaction.customId === 'fechar_ticket') {
+    await interaction.reply({ content: '🔒 Ticket será fechado em 5 segundos...', ephemeral: true });
+    setTimeout(() => interaction.channel.delete().catch(() => null), 5000);
+  }
 
-    if (interaction.customId === 'deletar_ticket') {
-      await interaction.reply({ content: '🗑️ Ticket deletado com sucesso.', ephemeral: true });
-      await interaction.channel.delete().catch(() => null);
-    }
+  if (interaction.customId === 'deletar_ticket') {
+    await interaction.reply({ content: '🗑️ Ticket deletado com sucesso.', ephemeral: true });
+    await interaction.channel.delete().catch(() => null);
   }
 
   if (interaction.type === InteractionType.ModalSubmit && interaction.customId === 'modal_add_user') {
