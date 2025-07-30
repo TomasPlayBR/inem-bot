@@ -1,119 +1,111 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, Partials, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField } = require('discord.js');
+const {
+  Client,
+  GatewayIntentBits,
+  Partials,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ChannelType,
+  PermissionsBitField,
+  InteractionType,
+} = require('discord.js');
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMessageReactions,
-  ],
-  partials: [Partials.Message, Partials.Channel, Partials.Reaction],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
+  partials: [Partials.Channel],
 });
 
-const TICKET_CATEGORY_ID = '1225264234624188426'; // Coloca a categoria onde os tickets vão ser criados
-const PANEL_CHANNEL_ID = '1225266760081735701'; // Canal onde vai o painel
+// IDs personalizados
+const TICKET_CATEGORY_ID = '1225264234624188426'; // ← tua categoria
+const PANEL_CHANNEL_ID = '1225266760081735701';   // ← onde o painel será enviado
+const STAFF_ROLE_ID = '1136777407982993418';      // ← quem pode ver os tickets
 
-// Função para criar painel de tickets com embed + botão
+// Painel com botão para abrir ticket
 async function sendTicketPanel() {
-  const channel = await client.channels.fetch(PANEL_CHANNEL_ID);
-  if (!channel) return console.log('Canal do painel não encontrado!');
+  const canal = await client.channels.fetch(PANEL_CHANNEL_ID);
+  if (!canal) return console.log('❌ Canal do painel não encontrado.');
 
   const embed = new EmbedBuilder()
-    .setTitle('🎫 Painel de Tickets')
-    .setDescription('Clique no botão abaixo para abrir um ticket. Um membro da equipe irá responder em breve!')
-    .setColor('#0099ff')
-    .setThumbnail('https://i.imgur.com/O3DHIA5.png') // Exemplo de imagem para o painel
-    .setFooter({ text: 'Sistema de Tickets INEM' });
+    .setTitle('🎫 Sistema de Tickets')
+    .setDescription('Clique no botão abaixo para abrir um ticket.\nNossa equipe irá ajudá-lo o mais rápido possível.')
+    .setColor('#00b0f4')
+    .setThumbnail('https://cdn-icons-png.flaticon.com/512/3208/3208710.png')
+    .setFooter({ text: 'INEM - Suporte Rápido', iconURL: client.user.displayAvatarURL() });
 
-  const button = new ButtonBuilder()
-    .setCustomId('open_ticket')
+  const botao = new ButtonBuilder()
+    .setCustomId('abrir_ticket')
     .setLabel('Abrir Ticket')
-    .setStyle(ButtonStyle.Primary)
-    .setEmoji('🎟️');
+    .setEmoji('📩')
+    .setStyle(ButtonStyle.Primary);
 
-  const row = new ActionRowBuilder().addComponents(button);
+  const row = new ActionRowBuilder().addComponents(botao);
 
-  await channel.send({ embeds: [embed], components: [row] });
+  await canal.send({ embeds: [embed], components: [row] });
 }
 
+// Contador de ticket local (para uso simples)
+let ticketCounter = 1;
+
 client.once('ready', async () => {
-  console.log(`Bot ${client.user.tag} está online!`);
-  // Enviar o painel quando o bot iniciar (comenta após a 1ª execução para não spam)
-  // await sendTicketPanel();
+  console.log(`${client.user.tag} está online!`);
+  await sendTicketPanel(); // Só precisa rodar uma vez para criar o painel
 });
 
-// Contador para nome dos tickets (podes usar um banco de dados pra guardar de forma persistente)
-let ticketCount = 1;
-
 client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isButton()) return;
+  if (interaction.type !== InteractionType.MessageComponent) return;
 
-  // Abrir ticket
-  if (interaction.customId === 'open_ticket') {
-    // Verifica se usuário já tem ticket aberto (opcional)
-    const existing = interaction.guild.channels.cache.find(c => c.name === `ticket-${interaction.user.id}`);
-    if (existing) {
-      return interaction.reply({ content: 'Você já tem um ticket aberto!', ephemeral: true });
-    }
+  // 📩 Criar Ticket
+  if (interaction.customId === 'abrir_ticket') {
+    const numero = ticketCounter.toString().padStart(2, '0');
+    ticketCounter++;
 
-    // Criar canal na categoria especificada
-    const channel = await interaction.guild.channels.create({
-      name: `ticket-${ticketCount.toString().padStart(2, '0')}`,
+    const canal = await interaction.guild.channels.create({
+      name: `ticket-${numero}`,
       type: ChannelType.GuildText,
       parent: TICKET_CATEGORY_ID,
       permissionOverwrites: [
-        {
-          id: interaction.guild.roles.everyone,
-          deny: [PermissionsBitField.Flags.ViewChannel],
-        },
-        {
-          id: interaction.user.id,
-          allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
-        },
-        // Coloca aqui o ID do cargo da equipe que pode ver o ticket
-        {
-          id: '1136777407982993418',
-          allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
-        },
+        { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+        { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
+        { id: STAFF_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
       ],
     });
 
-    ticketCount++;
-
     const embed = new EmbedBuilder()
-      .setTitle(`Ticket de ${interaction.user.tag}`)
-      .setDescription('Obrigado por abrir o ticket! Um membro da equipe irá te ajudar em breve.')
-      .setColor('#00ff00');
+      .setTitle(`🎫 Ticket Aberto`)
+      .setDescription(`Olá <@${interaction.user.id}>, obrigado por abrir um ticket.\nAguarde atendimento da equipe.`)
+      .setColor('#00ffae')
+      .setTimestamp();
 
-    const closeButton = new ButtonBuilder()
-      .setCustomId('close_ticket')
+    const botaoFechar = new ButtonBuilder()
+      .setCustomId('fechar_ticket')
       .setLabel('Fechar Ticket')
       .setStyle(ButtonStyle.Danger)
       .setEmoji('🔒');
 
-    const row = new ActionRowBuilder().addComponents(closeButton);
+    const row = new ActionRowBuilder().addComponents(botaoFechar);
 
-    await channel.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [row] });
-
-    await interaction.reply({ content: `Seu ticket foi criado: ${channel}`, ephemeral: true });
+    await canal.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [row] });
+    await interaction.reply({ content: `✅ Ticket criado: ${canal}`, ephemeral: true });
   }
 
-  // Fechar ticket
-  if (interaction.customId === 'close_ticket') {
+  // 🔒 Fechar Ticket
+  if (interaction.customId === 'fechar_ticket') {
     if (!interaction.channel.name.startsWith('ticket-')) {
-      return interaction.reply({ content: 'Este comando só funciona dentro de canais de tickets.', ephemeral: true });
+      return interaction.reply({ content: '❌ Isto só pode ser usado dentro de um ticket.', ephemeral: true });
     }
 
     const embed = new EmbedBuilder()
-      .setTitle('Ticket será fechado em 10 segundos...')
-      .setColor('#ff0000');
+      .setTitle('🕒 Fechando Ticket...')
+      .setDescription('Este canal será fechado em 5 segundos.')
+      .setColor('#ff6961');
 
     await interaction.reply({ embeds: [embed] });
 
     setTimeout(() => {
       interaction.channel.delete().catch(console.error);
-    }, 10000);
+    }, 5000);
   }
 });
 
