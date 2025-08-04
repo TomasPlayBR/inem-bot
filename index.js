@@ -1,5 +1,8 @@
 require('dotenv').config();
 const fs = require('fs');
+const express = require('express'); // <-- importando express
+const app = express();              // <-- criando app express
+
 const {
   Client,
   GatewayIntentBits,
@@ -36,6 +39,16 @@ const {
   EVAL_LOG_CHANNEL_ID
 } = process.env;
 
+// Configuração básica do servidor Express
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+  res.send('Bot INEM está online!');
+});
+
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
+});
 // Função para obter próximo número de ticket formatado
 function getNextTicketNumber() {
   const data = JSON.parse(fs.readFileSync('contador.json', 'utf-8'));
@@ -98,10 +111,10 @@ client.on('interactionCreate', async (interaction) => {
         });
 
         const ticketEmbed = new EmbedBuilder()
-          .setTitle(`🚑 Ticket #${numero} - INEM`)
-          .setDescription(`Olá, <@&${STAFF_ROLE_ID}>, um novo ticket foi aberto por <@${interaction.user.id}>, aguarde atendimento.\n\nPara prosseguir, escolha um dos assuntos abaixo.`)
-          .setColor('#ffcc00')
-          .setTimestamp();
+        .setTitle(`🚑 Ticket #${numero} - INEM`)
+        .setDescription(`🚨 <@&${STAFF_ROLE_ID}> | Novo ticket aberto por <@${interaction.user.id}>.\n\nPara prosseguir, escolha um dos assuntos abaixo.`)
+        .setColor('#ffcc00')
+        .setTimestamp();
 
         const buttons = new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId('btn_fechar').setLabel('🔒 Fechar Ticket').setStyle(ButtonStyle.Danger),
@@ -201,7 +214,7 @@ client.on('interactionCreate', async (interaction) => {
 
         if (escolha === 'recrutamento') {
           resposta = `Olá <@${interaction.user.id}>, por favor preencha:\n\n` +
-            `Nome:\nId:\nIdade:\nJá esteve no INEM antes?\nPorque queres entrar no INEM?`;
+            `Nome:\nId:\nIdade:\nJá esteve no INEM antes? Se sim a que cargo.\nPorque queres entrar no INEM?`;
         } else if (escolha === 'duvidas') {
                   } else if (escolha === 'duvidas') {
           resposta = `Qual a tua dúvida? Por favor, escreve-a aqui para que possamos ajudar.`;
@@ -388,4 +401,4 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-client.login(DISCORD_TOKEN);
+client.login(process.env.DISCORD_TOKEN)
